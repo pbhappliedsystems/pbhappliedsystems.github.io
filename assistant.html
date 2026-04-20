@@ -554,60 +554,67 @@ function escHtml(s) {
 function renderMarkdown(text) {
   if (!text) return '';
 
-  // Step 1: Extract and protect fenced code blocks BEFORE any escaping.
-  // Placeholder \x00CODE_n\x00 is invisible in HTML and won't collide with content.
+  // Step 1: Extract and protect triple-backtick code blocks BEFORE any escaping.
   const codeBlocks = [];
   text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
     const idx = codeBlocks.length;
-    const safeCode = escHtml(code.trim());
     const cls = lang ? ` class="lang-${lang}"` : '';
-    codeBlocks.push(`<pre><code${cls}>${safeCode}</code></pre>`);
+    codeBlocks.push(`<pre><code${cls}>${escHtml(code.trim())}</code></pre>`);
     return `\x00CODE${idx}\x00`;
   });
 
-  // Step 2: HTML-escape everything that isn't a protected code block.
+  // Step 2: Detect standalone single-backtick paragraphs — lines where the
+  // entire content is wrapped in one pair of backticks. Qwen-32B emits each
+  // function as `def foo(): ...entire body on one line...` as its own paragraph.
+  // Convert these to fenced code blocks so they render readably.
+  text = text.replace(/^`([^`]{20,})`$/gm, (_, inner) => {
+    const idx = codeBlocks.length;
+    // Restore any spaces the model collapsed — simple heuristic: split on
+    // Python keywords to re-break lines isn't reliable, so just render as-is
+    // but in a pre block so it's at least monospaced and copyable.
+    codeBlocks.push(`<pre><code>${escHtml(inner)}</code></pre>`);
+    return `\x00CODE${idx}\x00`;
+  });
+
+  // Step 3: HTML-escape remaining text.
   text = escHtml(text);
 
-  // Step 3: Restore protected code blocks (content already escaped inside).
+  // Step 4: Restore protected code blocks.
   text = text.replace(/\x00CODE(\d+)\x00/g, (_, i) => codeBlocks[parseInt(i)]);
 
-  // Step 4: Inline code — limit to 300 chars to avoid matching large backtick-wrapped
-  // sections that some models emit instead of fenced blocks.
-  text = text.replace(/`([^`\n]{1,300})`/g, '<code>$1</code>');
+  // Step 5: Inline code — short spans only (≤120 chars, no newlines).
+  text = text.replace(/`([^`\n]{1,120})`/g, '<code>$1</code>');
 
-  // Step 5: Headers.
+  // Step 6: Headers.
   text = text.replace(/^### (.+)$/gm, '<h3>$1</h3>');
   text = text.replace(/^## (.+)$/gm,  '<h2>$1</h2>');
   text = text.replace(/^# (.+)$/gm,   '<h1>$1</h1>');
 
-  // Step 6: Bold and italic.
+  // Step 7: Bold and italic.
   text = text.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
   text = text.replace(/\*\*(.+?)\*\*/g,     '<strong>$1</strong>');
   text = text.replace(/\*([^*\n]+?)\*/g,    '<em>$1</em>');
 
-  // Step 7: Tables — mark separator rows, then wrap.
+  // Step 8: Tables.
   text = text.replace(/^\|(.+)\|$/gm, (line) => {
     if (/^[\|\-\s:]+$/.test(line)) return '\x00TRSEP\x00';
     const cells = line.split('|').slice(1, -1).map(c => c.trim());
     return '<tr>' + cells.map(c => `<td>${c}</td>`).join('') + '</tr>';
   });
   text = text.replace(/(<tr>[\s\S]*?<\/tr>(\n\x00TRSEP\x00)?\n?)+/g, m => {
-    const rows = m.split('\n')
-      .filter(r => r.includes('<tr>') && !r.includes('\x00TRSEP\x00'));
+    const rows = m.split('\n').filter(r => r.includes('<tr>') && !r.includes('\x00TRSEP\x00'));
     if (!rows.length) return m;
     const header = rows[0].replace(/<td>/g,'<th>').replace(/<\/td>/g,'</th>');
-    const body   = rows.slice(1).join('\n');
-    return `<table><thead>${header}</thead><tbody>${body}</tbody></table>`;
+    return `<table><thead>${header}</thead><tbody>${rows.slice(1).join('\n')}</tbody></table>`;
   });
   text = text.replace(/\x00TRSEP\x00\n?/g, '');
 
-  // Step 8: Lists — handle both - and * bullets and ordered lists.
+  // Step 9: Lists.
   text = text.replace(/^[ \t]*[-*] (.+)$/gm, '<li>$1</li>');
   text = text.replace(/^[ \t]*\d+\. (.+)$/gm, '<li>$1</li>');
-  // Wrap consecutive <li> runs in <ul>.
   text = text.replace(/(<li>.*?<\/li>\n?)+/gs, m => `<ul>${m.trim()}</ul>`);
 
-  // Step 9: Paragraphs — split on blank lines, wrap non-block content.
+  // Step 10: Paragraphs — split on blank lines, wrap non-block content.
   const blocks = text.split(/\n{2,}/);
   return blocks.map(b => {
     b = b.trim();
