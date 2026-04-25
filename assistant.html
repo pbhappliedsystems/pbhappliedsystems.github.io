@@ -512,18 +512,6 @@ nav {
   margin-bottom: 0.75rem; display: none;
 }
 .modal-error.visible { display: block; }
-.modal-checkbox {
-  display: flex; align-items: flex-start; gap: 0.65rem;
-  margin-bottom: 1rem; cursor: pointer;
-}
-.modal-checkbox input[type="checkbox"] {
-  margin-top: 0.18rem; flex-shrink: 0;
-  accent-color: var(--teal2); width: 15px; height: 15px; cursor: pointer;
-}
-.modal-checkbox label {
-  font-size: 0.75rem; color: var(--mid); line-height: 1.55; cursor: pointer;
-}
-.modal-checkbox label a { color: var(--teal2); text-decoration: none; }
 
 /* ── EVAL BADGE ───────────────────────────────────────────────────────────── */
 .eval-badge {
@@ -783,19 +771,12 @@ footer {
     <div class="modal-error" id="modalError"></div>
     <input class="modal-input" type="email" id="gateEmail"
       placeholder="work@company.com" autocomplete="email">
-    <div class="modal-checkbox">
-      <input type="checkbox" id="gateConsent">
-      <label for="gateConsent">
-        I agree to receive one follow-up email about PBH Applied Systems'
-        evaluation services. I can unsubscribe at any time. Read our
-        <a href="privacy.html" target="_blank">Privacy Policy</a>.
-      </label>
-    </div>
     <button class="modal-submit" onclick="submitGate()">
       Unlock 10 More Queries →
     </button>
     <div class="modal-privacy">
-      Your email is hashed before storage. We never sell or share your data.
+      No spam. Read our <a href="privacy.html" target="_blank">Privacy Policy</a>.
+      You can opt out at any time.
     </div>
   </div>
 </div>
@@ -1082,11 +1063,8 @@ async function submitQuery() {
       return;
     }
 
-    // Update session — always sync the server-assigned token so subsequent
-    // requests hit the same Postgres row and query_count increments correctly.
+    // Update session
     if (data.session) {
-      sessionToken     = data.session.token;
-      localStorage.setItem('pbh_session_token', sessionToken);
       queriesRemaining = data.session.queries_remaining;
       queriesUsed      = data.session.queries_used;
       localStorage.setItem('pbh_queries_used', queriesUsed);
@@ -1094,12 +1072,6 @@ async function submitQuery() {
     }
 
     renderResponse(data, model);
-
-    // Gate modal: /api/agent returns status:'ok' + cta:'email_gate' (not
-    // status:'gate_required'), so we must check data.cta here after rendering.
-    if (data.cta === 'email_gate') {
-      showGateModal();
-    }
 
   } catch (err) {
     setLoading(false);
@@ -1167,46 +1139,31 @@ function renderResponse(data, model) {
 function renderMarkdown(text) {
   if (!text) return '';
 
-  // Normalize line endings — some models return CRLF which breaks the
-  // fence regex (/```lang\n/) since \r sits between the lang and \n.
-  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-
-  // ── Step 1: Stash code blocks BEFORE HTML escaping ───────────────────────
-  // Extracting fences first means HTML escaping can never interfere with
-  // backtick detection, and code content is escaped cleanly in isolation.
-  // [^\S\n]* allows optional horizontal whitespace after the language name.
-  const codeBlocks = [];
-  text = text.replace(/```(\w*)[^\S\n]*\n([\s\S]*?)```/g, (_, lang, code) => {
-    const safe = code.trimEnd()
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-    codeBlocks.push(
-      `<pre><code class="lang-${lang || 'text'}">${safe}</code></pre>`
-    );
-    return `\x00CODE${codeBlocks.length - 1}\x00`;
-  });
-
-  // ── Step 2: HTML-escape the remainder ────────────────────────────────────
+  // Escape HTML first
   let html = text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 
-  // ── Step 3: Inline code (excludes newlines to prevent cross-line matches) ─
-  html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+  // Code blocks
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) =>
+    `<pre><code class="lang-${lang}">${code.trimEnd()}</code></pre>`
+  );
 
-  // ── Step 4: Headers ───────────────────────────────────────────────────────
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Headers
   html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-  html = html.replace(/^## (.+)$/gm,  '<h2>$1</h2>');
-  html = html.replace(/^# (.+)$/gm,   '<h1>$1</h1>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
 
-  // ── Step 5: Bold / italic ─────────────────────────────────────────────────
+  // Bold/italic
   html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
-  html = html.replace(/\*\*(.+?)\*\*/g,     '<strong>$1</strong>');
-  html = html.replace(/\*(.+?)\*/g,         '<em>$1</em>');
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
 
-  // ── Step 6: Tables ────────────────────────────────────────────────────────
+  // Tables (basic)
   html = html.replace(/^\|(.+)\|$/gm, (line) => {
     if (/^[\|\-\s:]+$/.test(line)) return '<tr-sep>';
     const cells = line.split('|').slice(1, -1).map(c => c.trim());
@@ -1215,30 +1172,25 @@ function renderMarkdown(text) {
   html = html.replace(/(<tr>.*<\/tr>\n?)+/gs, m => {
     const rows = m.trim().split('\n').filter(r => r && !r.includes('<tr-sep>'));
     if (rows.length === 0) return m;
-    const header = rows[0].replace(/<td>/g, '<th>').replace(/<\/td>/g, '</th>');
-    const body   = rows.slice(1).join('\n');
+    const header = rows[0].replace(/<td>/g,'<th>').replace(/<\/td>/g,'</th>');
+    const body = rows.slice(1).join('\n');
     return `<table><thead>${header}</thead><tbody>${body}</tbody></table>`;
   });
   html = html.replace(/<tr-sep>\n?/g, '');
 
-  // ── Step 7: Lists ─────────────────────────────────────────────────────────
-  html = html.replace(/^- (.+)$/gm,      '<li>$1</li>');
-  html = html.replace(/^\d+\. (.+)$/gm,  '<li>$1</li>');
+  // Lists
+  html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
   html = html.replace(/(<li>[\s\S]+?<\/li>)(\n(?!<li>)|$)/g, '<ul>$1</ul>');
 
-  // ── Step 8: Paragraphs ────────────────────────────────────────────────────
-  // CODE placeholders are single-line tokens — they are never split here.
+  // Paragraphs (double newlines)
   const blocks = html.split(/\n{2,}/);
   html = blocks.map(block => {
     block = block.trim();
     if (!block) return '';
-    if (/^<(h[1-6]|ul|ol|li|table|blockquote)/.test(block)) return block;
-    if (/^\x00CODE/.test(block)) return block;
+    if (/^<(h[1-6]|ul|ol|li|pre|table|blockquote)/.test(block)) return block;
     return `<p>${block.replace(/\n/g, '<br>')}</p>`;
   }).join('\n');
-
-  // ── Step 9: Restore code blocks ───────────────────────────────────────────
-  html = html.replace(/\x00CODE(\d+)\x00/g, (_, i) => codeBlocks[parseInt(i, 10)]);
 
   return html;
 }
@@ -1296,8 +1248,6 @@ function toggleThink() {
 
 // ── EMAIL GATE ────────────────────────────────────────────────────────────────
 function showGateModal() {
-  document.getElementById('gateConsent').checked = false;
-  document.getElementById('modalError').classList.remove('visible');
   document.getElementById('gateModal').classList.add('visible');
   setTimeout(() => document.getElementById('gateEmail').focus(), 300);
 }
@@ -1307,9 +1257,8 @@ function hideGateModal() {
 }
 
 async function submitGate() {
-  const email     = document.getElementById('gateEmail').value.trim();
-  const consent   = document.getElementById('gateConsent').checked;
-  const errorEl   = document.getElementById('modalError');
+  const email = document.getElementById('gateEmail').value.trim();
+  const errorEl = document.getElementById('modalError');
 
   if (!email || !email.includes('@') || !email.includes('.')) {
     errorEl.textContent = 'Please enter a valid work email address.';
@@ -1317,16 +1266,10 @@ async function submitGate() {
     return;
   }
 
-  if (!consent) {
-    errorEl.textContent = 'Please check the box to agree before continuing.';
-    errorEl.classList.add('visible');
-    return;
-  }
-
   errorEl.classList.remove('visible');
 
   try {
-    const resp = await fetch(`${API_BASE}/api/register-email`, {
+    const resp = await fetch(`${API_BASE}/api/gate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, session_token: sessionToken }),
