@@ -31,7 +31,7 @@
 <header>
   <div class="brand">PBH Applied Systems, LLC</div>
   <h1>Privacy Policy</h1>
-  <div class="meta">Effective Date: March 2026 &nbsp;·&nbsp; Last Updated: April 2026 (rev. 2)</div>
+  <div class="meta">Effective Date: March 2026 &nbsp;·&nbsp; Last Updated: April 2026</div>
 </header>
 <main>
   <div class="intro">
@@ -67,7 +67,7 @@
       <strong>Session tokens:</strong> A random session identifier is stored in your browser's local storage to track your query count within a session. This token contains no personal information and is not linked to your identity unless you provide an email address.
     </div>
     <div class="highlight-box">
-      <strong>Email address (optional):</strong> If you submit your email address to unlock additional queries, we store a one-way cryptographic hash of that address in our session database. Your raw email address is passed to Resend (our transactional email provider) solely to send a single follow-up message from PBH Applied Systems describing our quantized model evaluation services. The raw address is never stored in our database. You may opt out at any time by clicking the unsubscribe link in that message or by emailing <a href="mailto:admin@pbhappliedsystems.com">admin@pbhappliedsystems.com</a>. Explicit consent is collected via checkbox before your email is submitted.
+      <strong>Email address (optional):</strong> If you submit your email address to unlock additional queries, we store a one-way cryptographic hash of that address in our session database. Your raw email address is used only to send a single follow-up message from PBH Applied Systems describing our quantized model evaluation services. You may opt out of further contact at any time by clicking the unsubscribe link in that message or by emailing <a href="mailto:admin@pbhappliedsystems.com">admin@pbhappliedsystems.com</a>.
     </div>
     <div class="highlight-box">
       <strong>GPU compute:</strong> Inference runs on Modal.com's serverless GPU infrastructure. Prompt data is transmitted to Modal's servers solely for the purpose of generating your response. Modal's privacy policy governs how data is handled on their infrastructure: <a href="https://modal.com/privacy" target="_blank">modal.com/privacy</a>.
@@ -96,7 +96,7 @@
     <ul>
       <li><a href="https://modal.com/privacy" target="_blank">Modal.com</a> — GPU inference infrastructure used to run quantized language models</li>
       <li><a href="https://railway.app/legal/privacy" target="_blank">Railway</a> — Cloud hosting for the AI Agent Demo API backend</li>
-      <li><a href="https://resend.com/privacy" target="_blank">Resend</a> — Transactional email delivery for demo follow-up messages via HTTPS API</li>
+      <li><a href="https://migadu.com/privacy" target="_blank">Migadu </a> — Transactional email delivery for demo follow-up messages</li>
       <li><a href="https://policies.google.com/privacy" target="_blank">Google / YouTube</a> — Content distribution API integration</li>
       <li><a href="https://www.linkedin.com/legal/privacy-policy" target="_blank">LinkedIn</a> — Content distribution API integration</li>
       <li><a href="https://www.facebook.com/privacy/policy" target="_blank">Meta (Instagram / Facebook)</a> — Content distribution API integration</li>
@@ -105,8 +105,8 @@
 
   <section>
     <h2>6. Data Storage and Security</h2>
-    <p>Session data and hashed email addresses are stored in a PostgreSQL database hosted on Railway's infrastructure within the AI Agent Demo backend. The database uses encryption at rest provided by Railway's platform. API credentials and access tokens are stored as environment variables and are never committed to source control or transmitted outside their intended service endpoints.</p>
-    <p>We implement reasonable technical safeguards appropriate to the sensitivity of the data handled, including HTTPS-only transmission, Cloudflare proxy protection, access controls, hashed storage of email addresses, and environment variable isolation for all credentials.</p>
+    <p>Session data and hashed email addresses are stored in a SQLite database hosted on Railway's infrastructure within the AI Agent Demo backend. API credentials and access tokens are stored as environment variables and are never committed to source control or transmitted outside their intended service endpoints.</p>
+    <p>We implement reasonable technical safeguards appropriate to the sensitivity of the data handled, including HTTPS-only transmission, access controls, hashed storage of email addresses, and environment variable isolation for all credentials.</p>
   </section>
 
   <section>
