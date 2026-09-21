@@ -1,0 +1,25 @@
+# pbhappliedsystems.com
+# Purpose: be found and cited by search engines and AI search assistants.
+
+User-agent: *
+Allow: /
+
+# AI search, retrieval, and model crawlers - explicitly admitted
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: GPTBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: ClaudeBot
+User-agent: PerplexityBot
+User-agent: Google-Extended
+User-agent: CCBot
+Allow: /
+
+# Not frontier-model search surfaces - carried from the current file
+User-agent: Bytespider
+User-agent: Omgilibot
+User-agent: FacebookBot
+Disallow: /
+
+Sitemap: https://pbhappliedsystems.com/sitemap.xml
